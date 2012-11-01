@@ -92,7 +92,8 @@ installIntoRoot( env, "bin", keyNotifier, alwaysInAppResources=True )
 keyUtils = env.LoadableModule(
     source = ["key_utils.m"],
     target = ["key_utils.so"],
-    FRAMEWORKS = ["ApplicationServices"]
+    FRAMEWORKS = ["ApplicationServices"],
+    LINKFLAGS = ['-lobjc']
     )
 
 installIntoRoot( env, "enso/platform/osx/selection", keyUtils )
