@@ -30,21 +30,20 @@ class _TransparentWindowView( AppKit.NSView ):
         if not surface:
             return
 
-        context = AppKit.NSGraphicsContext.currentContext()
-
         # Taken from the OS X Cocoa Drawing Guide section on
         # "Creating a Flip Transform".
         frameRect = self.bounds()
         xform = AppKit.NSAffineTransform.transform()
-        sendMsg( xform,
-                 "translateXBy:", 0.0,
-                 "yBy:", frameRect.size.height )
-
-        sendMsg( xform,
-                 "scaleXBy:", 1.0,
-                 "yBy:", -1.0 )
-
+        xform.translateXBy_yBy_(0.0, frameRect.size.height)
+        xform.scaleXBy_yBy_(1.0, -1.0)
         xform.concat()
+
+        context = AppKit.NSGraphicsContext.graphicsContextWithBitmapImageRep_(parent._imageRep)
+        surface = cairo_surface_from_NSGraphicsContext(context, parent.getMaxWidth(), parent.getMaxHeight())
+        ctx=cairo.Context(surface)
+        ctx.set_source_surface(parent._surface)
+        ctx.paint()
+        surface.finish()
 
         parent._imageRep.draw()
 
@@ -73,30 +72,16 @@ class TransparentWindow( object ):
                                       _convertY( self.__y, self.__height ),
                                       self.__width,
                                       self.__height )
-        style = AppKit.NSBorderlessWindowMask
-        self.__wind = sendMsg(
-            AppKit.NSWindow.alloc(),
-            "initWithContentRect:", rect,
-            "styleMask:", style,
-            "backing:", AppKit.NSBackingStoreBuffered,
-            "defer:", objc.YES
-            )
-
+        self.__wind = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+                                                rect, AppKit.NSBorderlessWindowMask,
+                                                AppKit.NSBackingStoreBuffered, objc.YES)
         self.__wind.setBackgroundColor_( AppKit.NSColor.clearColor() )
         self.__view = _TransparentWindowView.alloc().initWithParent_( self )
         self.__wind.setContentView_( self.__view )
         self.__wind.setLevel_( AppKit.NSPopUpMenuWindowLevel )
         self.__wind.setOpaque_( objc.NO )
         self.__wind.setAlphaValue_( 1.0 )
-
-    def update( self ):
-        if self._surface:
-            self.__wind.makeKeyAndOrderFront_( objc.nil )
-            self.__view.setNeedsDisplay_( objc.YES )
-
-    def makeCairoSurface( self ):
-        if not self._surface:
-            self._imageRep = sendMsg(
+        self._imageRep = sendMsg(
                 AppKit.NSBitmapImageRep.alloc(),
                 "initWithBitmapDataPlanes:", None,
                 "pixelsWide:", self.__maxWidth,
@@ -111,22 +96,14 @@ class TransparentWindow( object ):
                 "bitsPerPixel:", 32
                 )
 
-            # This NSGraphicsContext retains the NSBitmapImageRep we
-            # pass it, but for some reason it doesn't release it on
-            # destruction... See this class' __del__() method for how
-            # we deal with this.
-            nsContext = sendMsg(
-                AppKit.NSGraphicsContext,
-                "graphicsContextWithBitmapImageRep:",
-                self._imageRep
-                )
+    def update( self ):
+        if self._surface:
+            self.__wind.makeKeyAndOrderFront_( objc.nil )
+            self.__view.setNeedsDisplay_( objc.YES )
 
-            self._surface = cairo_surface_from_NSGraphicsContext(
-                nsContext,
-                self.__maxWidth,
-                self.__maxHeight
-                )
-
+    def makeCairoSurface( self ):
+        if not self._surface:
+            self._surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.__maxWidth, self.__maxHeight)
         return self._surface
 
     def setOpacity( self, opacity ):
@@ -169,11 +146,6 @@ class TransparentWindow( object ):
 
     def getMaxHeight( self ):
         return self.__maxHeight
-
-    def __del__( self ):
-        if self._surface:
-            self._surface.finish()
-            self._surface = None
 
 def getDesktopSize():
     size = AppKit.NSScreen.mainScreen().frame().size
