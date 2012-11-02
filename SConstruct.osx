@@ -4,28 +4,11 @@
 #
 # ----------------------------------------------------------------------------
 
-import sys
-
-ccBaseFlags = [
-    "-Wall",     # GCC: Display all warnings.
-    "-Werror",   # GCC: Treat warnings as errors.
-]
-
-opts = Options()
-opts.Add( BoolOption("STANDALONE",
-                     "Set to build a standalone app bundle.",
-                     0) )
+import distutils.sysconfig
 
 env = Environment(
-    CCFLAGS = ccBaseFlags,
-    options = opts
+    CCFLAGS = ["-Wall", "-Werror"],
+    CPPPATH = [distutils.sysconfig.get_python_inc()]
     )
 
-Help( opts.GenerateHelpText(env) )
-
-# Add the Python library to our environment.
-env.Append(
-    CPPPATH = sys.prefix + "/include/python" + sys.version[:3],
-    )
-
-SConscript( "src/platform/osx/SConscript", exports="env" )
+SConscript("src/platform/osx/SConscript", exports="env")

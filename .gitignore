@@ -1,3 +1,5 @@
 .svn
 .svnignore
 bin
+*.pyc
+.DS_Store
