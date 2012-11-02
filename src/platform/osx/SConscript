@@ -9,7 +9,8 @@ import os
 env = env.Clone()
 env.Append(
     CPPPATH = ["/usr/local/Cellar/cairo/1.12.6/include/cairo"],
-    LIBPATH = ["/usr/local/Cellar/cairo/1.12.6/lib/"])
+    LIBPATH = ["/usr/local/Cellar/cairo/1.12.6/lib/"],
+    LINKFLAGS = ["-lobjc"])
 
 qcbEnv = env.Clone()
 qcbEnv.Append(
@@ -39,8 +40,7 @@ env.Install("#bin/Enso.app/Contents/Resources/bin", keyNotifier)
 keyUtils = env.LoadableModule(
     source = ["key_utils.m"],
     target = ["key_utils.so"],
-    FRAMEWORKS = ["ApplicationServices"],
-    LINKFLAGS = ['-lobjc']
+    FRAMEWORKS = ["ApplicationServices"]
     )
 
 env.Install("#enso/platform/osx/selection", keyUtils)

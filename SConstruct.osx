@@ -7,8 +7,9 @@
 import distutils.sysconfig
 
 env = Environment(
-    CCFLAGS = ["-Wall", "-Werror"],
-    CPPPATH = [distutils.sysconfig.get_python_inc()]
+    CCFLAGS = ["-Wall", "-Werror", "-arch", "i386"],
+    CPPPATH = [distutils.sysconfig.get_python_inc()],
+    LINKFLAGS = ['-arch', 'i386']
     )
 
 SConscript("src/platform/osx/SConscript", exports="env")
