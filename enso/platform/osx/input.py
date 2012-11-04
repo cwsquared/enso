@@ -178,7 +178,11 @@ class _KeyListener( Foundation.NSObject ):
         eventDict = {}
         for key in userInfo:
             eventDict[key] = userInfo.objectForKey_(key)
-        self.__callback( eventDict )
+        logging.info("%s", eventDict)
+        try:
+            self.__callback( eventDict )
+        except Exception, e:
+            logging.exception("Exception in _KeyListener callback")
 
     def register( self ):
         self.__center = Foundation.NSDistributedNotificationCenter.defaultCenter()
