@@ -178,7 +178,6 @@ class _KeyListener( Foundation.NSObject ):
         eventDict = {}
         for key in userInfo:
             eventDict[key] = userInfo.objectForKey_(key)
-        logging.info("%s", eventDict)
         try:
             self.__callback( eventDict )
         except Exception, e:
