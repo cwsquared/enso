@@ -10,8 +10,6 @@ import objc
 import Foundation
 import AppKit
 
-from enso.platform.osx.utils import sendMsg
-
 # Timer interval in seconds.
 _TIMER_INTERVAL = 0.010
 
@@ -179,24 +177,16 @@ class _KeyListener( Foundation.NSObject ):
         userInfo = notification.userInfo()
         eventDict = {}
         for key in userInfo:
-            eventDict[key] = sendMsg( userInfo,
-                                       "objectForKey:", key )
+            eventDict[key] = userInfo.objectForKey_(key)
         self.__callback( eventDict )
 
     def register( self ):
-        NSDNC = Foundation.NSDistributedNotificationCenter
-        self.__center = NSDNC.defaultCenter()
-        sendMsg(
-            self.__center,
-            "addObserver:", self,
-            "selector:", self.onNotification,
-            "name:", u"EnsoKeyNotifier_msg",
-            "object:", u"EnsoKeyNotifier"
-            )
+        self.__center = Foundation.NSDistributedNotificationCenter.defaultCenter()
+        self.__center.addObserver_selector_name_object_(
+            self, self.onNotification, u"EnsoKeyNotifier_msg", u"EnsoKeyNotifier")
 
     def unregister( self ):
-        sendMsg( self.__center,
-                  "removeObserver:", self )
+        self.__center.removeObserver_(self)
 
 def nestedAutoreleasePooled(func):
     """
@@ -257,37 +247,19 @@ class InputManager( object ):
             logging.info( "An app delegate is already attached; "
                           "skipping installation." )
 
-        timer = sendMsg(
-            _Timer.alloc(),
-            "initWithCallback:", self.__timerCallback
-            )
-
-        signature = sendMsg(
-            timer,
-            "methodSignatureForSelector:", timer.onTimer
-            )
-
-        invocation = sendMsg(
-            Foundation.NSInvocation,
-            "invocationWithMethodSignature:", signature
-            )
-
-        sendMsg( invocation, "setSelector:", timer.onTimer )
-        sendMsg( invocation, "setTarget:", timer )
-
-        sendMsg( Foundation.NSTimer,
-                  "scheduledTimerWithTimeInterval:", _TIMER_INTERVAL,
-                  "invocation:", invocation,
-                  "repeats:", objc.YES )
+        timer = _Timer.alloc().initWithCallback_(self.__timerCallback)
+        signature = timer.methodSignatureForSelector_(timer.onTimer)
+        invocation = Foundation.NSInvocation.invocationWithMethodSignature_(signature)
+        invocation.setSelector_(timer.onTimer)
+        invocation.setTarget_(timer)
+        Foundation.NSTimer.scheduledTimerWithTimeInterval_invocation_repeats_(
+                _TIMER_INTERVAL, invocation, objc.YES)
 
         keyNotifier = _KeyNotifierController()
         keyNotifier.start()
         atexit.register( keyNotifier.stop )
 
-        keyListener = sendMsg(
-            _KeyListener.alloc(),
-            "initWithCallback:", self.__keyCallback
-            )
+        keyListener = _KeyListener.alloc().initWithCallback_(self.__keyCallback)
         keyListener.register()
         atexit.register( keyListener.unregister )
 
