@@ -1,10 +1,11 @@
 #include <AppKit/NSWorkspace.h>
 #include <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSAutoreleasePool.h>
-#import <Foundation/NSDistributedNotificationCenter.h>
 #import <Foundation/NSArray.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSConnection.h>
+#import <Foundation/NSDistantObject.h>
 #include <stdio.h>
 
 #define QUASIMODE_KEY kCGEventFlagMaskAlternate
@@ -15,24 +16,21 @@
 #define DEBUG_MSG( msg )
 #endif
 
-NSDistributedNotificationCenter *center;
+@protocol KeyListener
+-(void)quasimodeStart;
+-(void)quasimodeEnd;
+-(void)someKey;
+-(void)keyUpChars:(id)string keycode:(id)keycode;
+-(void)keyDownChars:(id)string keycode:(id)keycode;
+@end
+
+id keyListener;
 
 CGKeyCode lastQuasimodalKeyCode;
 CGEventFlags lastQuasimodalKeyFlags;
 int numQuasimodalKeyDowns = 0;
 
 static BOOL inQuasimode = NO;
-
-static void sendSomeKeyEvent( void )
-{
-    NSArray *keys = [NSArray arrayWithObjects: @"event", nil];
-    NSArray *values = [NSArray arrayWithObjects: @"someKey", nil];
-    NSDictionary *dict = [NSDictionary dictionaryWithObjects: values forKeys: keys];
-
-    [center postNotificationName: @"EnsoKeyNotifier_msg"
-            object: @"EnsoKeyNotifier"
-            userInfo: dict];
-}
 
 CGEventRef processEvent( CGEventTapProxy proxy,
                          CGEventType type,
@@ -54,13 +52,7 @@ CGEventRef processEvent( CGEventTapProxy proxy,
         {
             if ( !(flags & QUASIMODE_KEY) )
             {
-                NSArray *keys = [NSArray arrayWithObjects: @"event", nil];
-                NSArray *values = [NSArray arrayWithObjects: @"quasimodeEnd", nil];
-                NSDictionary *dict = [NSDictionary dictionaryWithObjects: values forKeys: keys];
-
-                [center postNotificationName: @"EnsoKeyNotifier_msg"
-                        object: @"EnsoKeyNotifier"
-                        userInfo: dict];
+                [keyListener quasimodeEnd];
                 inQuasimode = NO;
                 if ( numQuasimodalKeyDowns == 1 )
                 {
@@ -94,19 +86,13 @@ CGEventRef processEvent( CGEventTapProxy proxy,
         } else {
             if ( flags & QUASIMODE_KEY )
             {
-                NSArray *keys = [NSArray arrayWithObjects: @"event", nil];
-                NSArray *values = [NSArray arrayWithObjects: @"quasimodeStart", nil];
-                NSDictionary *dict = [NSDictionary dictionaryWithObjects: values forKeys: keys];
-
-                [center postNotificationName: @"EnsoKeyNotifier_msg"
-                        object: @"EnsoKeyNotifier"
-                        userInfo: dict];
+                [keyListener quasimodeStart];
                 inQuasimode = YES;
                 passOnEvent = NO;
                 numQuasimodalKeyDowns = 0;
                 DEBUG_MSG( "Enter quasimode\n" );
             } else {
-                sendSomeKeyEvent();
+                [keyListener someKey];
             }
         }
     } else {
@@ -128,32 +114,21 @@ CGEventRef processEvent( CGEventTapProxy proxy,
 
             NSString *chars = [NSString stringWithCharacters: strbuf
                                         length: charsCopied];
-            NSString *eventType;
-
             int64_t keycode = CGEventGetIntegerValueField(
                 event,
                 kCGKeyboardEventKeycode
                 );
+            NSNumber *keycodeNum = [NSNumber numberWithUnsignedInt: keycode];
 
             if ( type == kCGEventKeyDown ) {
                 numQuasimodalKeyDowns += 1;
                 lastQuasimodalKeyCode = keycode;
                 lastQuasimodalKeyFlags = CGEventGetFlags( event );
-                eventType = @"keyDown";
+				[keyListener keyDownChars: chars keycode: keycodeNum];
             } else
-                eventType = @"keyUp";
-
-            NSNumber *keycodeNum = [NSNumber numberWithUnsignedInt: keycode];
-
-            NSArray *keys = [NSArray arrayWithObjects: @"event", @"chars", @"keycode", nil];
-            NSArray *values = [NSArray arrayWithObjects: eventType, chars, keycodeNum, nil];
-            NSDictionary *dict = [NSDictionary dictionaryWithObjects: values forKeys: keys];
-
-            [center postNotificationName: @"EnsoKeyNotifier_msg"
-                    object: @"EnsoKeyNotifier"
-                    userInfo: dict];
+				[keyListener keyUpChars: chars keycode: keycodeNum];
         } else {
-            sendSomeKeyEvent();
+            [keyListener someKey];
         }
     }
 
@@ -189,7 +164,10 @@ int main( int argc, const char *argv[] )
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    center = [NSDistributedNotificationCenter defaultCenter];
+    NSConnection *connection = [NSConnection connectionWithRegisteredName:@"ensoKeyListener" host:nil];
+// 	[connection setIndependentConversationQueueing: YES];
+	keyListener = [[connection rootProxy] retain];
+    [keyListener setProtocolForProxy:@protocol(KeyListener)];
 
     CGEventMask mask = ( CGEventMaskBit( kCGEventKeyDown ) |
                          CGEventMaskBit( kCGEventKeyUp ) |

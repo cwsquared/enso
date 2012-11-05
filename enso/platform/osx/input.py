@@ -154,6 +154,7 @@ class _Timer( Foundation.NSObject ):
         self.__callback()
 
 class _AppDelegate( Foundation.NSObject ):
+
     def applicationShouldTerminate_( self, sender ):
         logging.info( "applicationShouldTerminate() called." )
         return AppKit.NSTerminateNow
@@ -164,32 +165,37 @@ class _AppDelegate( Foundation.NSObject ):
         # not Python.
         sys.exitfunc()
 
-class _KeyListener( Foundation.NSObject ):
-    def initWithCallback_( self, callback ):
+class _KeyListener(Foundation.NSObject):
+
+    def initWithInputManager_( self, inputManager ):
         self = super( _KeyListener, self ).init()
         if self == None:
             return None
-        self.__callback = callback
+        self.__inputManager = inputManager
         return self
 
-    def onNotification( self, notification ):
-        #print "notification received: %s" % notification.name()
-        userInfo = notification.userInfo()
-        eventDict = {}
-        for key in userInfo:
-            eventDict[key] = userInfo.objectForKey_(key)
-        try:
-            self.__callback( eventDict )
-        except Exception, e:
-            logging.exception("Exception in _KeyListener callback")
+    def quasimodeStart(self):
+        self.__inputManager.onKeypress( EVENT_KEY_QUASIMODE,
+                                        KEYCODE_QUASIMODE_START )
+
+    def quasimodeEnd(self):
+        self.__inputManager.onKeypress( EVENT_KEY_QUASIMODE,
+                                        KEYCODE_QUASIMODE_END )
+
+    def someKey(self):
+        self.__inputManager.onSomeKey()
+
+    def keyDownChars_keycode_(self, chars, keycode):
+        self.__inputManager.onKeypress(EVENT_KEY_DOWN, keycode)
+
+    def keyUpChars_keycode_(self, chars, keycode):
+        self.__inputManager.onKeypress(EVENT_KEY_UP, keycode)
 
     def register( self ):
-        self.__center = Foundation.NSDistributedNotificationCenter.defaultCenter()
-        self.__center.addObserver_selector_name_object_(
-            self, self.onNotification, u"EnsoKeyNotifier_msg", u"EnsoKeyNotifier")
-
-    def unregister( self ):
-        self.__center.removeObserver_(self)
+        connection = Foundation.NSConnection.defaultConnection()
+        connection.setRootObject_(self)
+        if connection.registerName_("ensoKeyListener")==objc.NO:
+            logging.warn("Couldn't start enso nsconnection")
 
 def nestedAutoreleasePooled(func):
     """
@@ -217,26 +223,6 @@ class InputManager( object ):
     def __timerCallback( self ):
         self.onTick( _TIMER_INTERVAL_IN_MS )
 
-    @nestedAutoreleasePooled
-    def __keyCallback( self, info ):
-        if info["event"] == "quasimodeStart":
-            self.onKeypress( EVENT_KEY_QUASIMODE,
-                             KEYCODE_QUASIMODE_START )
-        elif info["event"] == "quasimodeEnd":
-            self.onKeypress( EVENT_KEY_QUASIMODE,
-                             KEYCODE_QUASIMODE_END )
-        elif info["event"] == "someKey":
-            self.onSomeKey()
-        elif info["event"] in ["keyUp", "keyDown"]:
-            keycode = info["keycode"]
-            if info["event"] == "keyUp":
-                eventType = EVENT_KEY_UP
-            else:
-                eventType = EVENT_KEY_DOWN
-            self.onKeypress( eventType, keycode )
-        else:
-            logging.warn( "Don't know what to do with event: %s" % info )
-
     def run( self ):
         logging.info( "Entering InputManager.run()" )
 
@@ -262,9 +248,8 @@ class InputManager( object ):
         keyNotifier.start()
         atexit.register( keyNotifier.stop )
 
-        keyListener = _KeyListener.alloc().initWithCallback_(self.__keyCallback)
+        keyListener = _KeyListener.alloc().initWithInputManager_(self)
         keyListener.register()
-        atexit.register( keyListener.unregister )
 
         self.onInit()
 
