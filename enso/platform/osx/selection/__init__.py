@@ -4,8 +4,6 @@ import os
 
 import AppKit
 
-from enso.platform.osx.utils import sendMsg
-
 key_utils = ctypes.CDLL( os.path.join( __path__[0], "key_utils.so" ) )
 
 def _getClipboardText():
@@ -64,16 +62,9 @@ def set( seldict ):
 
     if typesToPaste:
         pb = AppKit.NSPasteboard.generalPasteboard()
-
-        sendMsg( pb,
-                 "declareTypes:", [ selClipboardMapping[selType]
-                                    for selType in typesToPaste ],
-                 "owner:", None )
-
+        pb.declareTypes_owner_([selClipboardMapping[selType] for selType in typesToPaste ], None)
         for selType in typesToPaste:
-            if sendMsg( pb,
-                        "setString:", seldict[selType],
-                        "forType:", selClipboardMapping[selType] ):
+            if pb.setString_forType_(seldict[selType], selClipboardMapping[selType]):
                 tryToPaste = True
 
         if tryToPaste:
