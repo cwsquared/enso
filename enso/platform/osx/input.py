@@ -174,20 +174,25 @@ class _KeyListener(Foundation.NSObject):
         self.__inputManager = inputManager
         return self
 
+    @objc.typedSelector('Vv8@0:4')
     def quasimodeStart(self):
         self.__inputManager.onKeypress( EVENT_KEY_QUASIMODE,
                                         KEYCODE_QUASIMODE_START )
 
+    @objc.typedSelector('Vv8@0:4')
     def quasimodeEnd(self):
         self.__inputManager.onKeypress( EVENT_KEY_QUASIMODE,
                                         KEYCODE_QUASIMODE_END )
 
+    @objc.typedSelector('Vv8@0:4')
     def someKey(self):
         self.__inputManager.onSomeKey()
 
+    @objc.typedSelector('Vv16@0:4@8@12')
     def keyDownChars_keycode_(self, chars, keycode):
         self.__inputManager.onKeypress(EVENT_KEY_DOWN, keycode)
 
+    @objc.typedSelector('Vv16@0:4@8@12')
     def keyUpChars_keycode_(self, chars, keycode):
         self.__inputManager.onKeypress(EVENT_KEY_UP, keycode)
 

@@ -17,11 +17,11 @@
 #endif
 
 @protocol KeyListener
--(void)quasimodeStart;
--(void)quasimodeEnd;
--(void)someKey;
--(void)keyUpChars:(id)string keycode:(id)keycode;
--(void)keyDownChars:(id)string keycode:(id)keycode;
+-(oneway void)quasimodeStart;
+-(oneway void)quasimodeEnd;
+-(oneway void)someKey;
+-(oneway void)keyUpChars:(id)string keycode:(id)keycode;
+-(oneway void)keyDownChars:(id)string keycode:(id)keycode;
 @end
 
 id keyListener;
